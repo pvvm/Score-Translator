@@ -55,27 +55,47 @@ def translator(file):
                     score -= -3
                     gap = 0
                 
-                #print(seqA[i], seqB[i], score, gap)
+            #print(seqA, seqB, score, gap)
 
     for line in best_align:
         print(line)
 
-    return best_score    
+    return best_score
+
+def finder(file):
+
+    best = 0
+
+    for line in file:
+        if "a score=" in line and best < int((line[:-1])[8:]):
+            best = int((line[:-1])[8:])
+    
+    return best
 
 def main():
-    if str(sys.argv[1]) == "-m":
-        command = "run-mummer3 " + str(sys.argv[2]) + " " + str(sys.argv[3]) + " " + str(sys.argv[4])
+
+    if str(sys.argv[1]) == "-h":
+        print("\nOptions:\nExecute with MUMmer:\npython3 score_translator.py -m sequence1.fasta sequence2.fasta\n\nExecute with Lastz:\npython3 score_translator.py -l sequence1.fasta sequence2.fasta [traceback]\n")
+        print("Note: traceback must be bigger than 0\n\n")
+
+    elif str(sys.argv[1]) == "-m":
+        command = f"run-mummer3 {str(sys.argv[2])} {str(sys.argv[3])} result"
         os.system(command)
-        
-        file_name = (str(sys.argv[4]) + ".align")
+        print("\n\nFinding and translating the MUMmer best alignment score...\n")    
+        f = open("result.align", "r")
+        score = translator(f)
+        print(f"Translated score: {score} \n\n")
 
-    elif str(sys.argv[1] == "-p"):
-        file_name = str(sys.argv[2])
+    elif str(sys.argv[1] == "-l"):
+        command = f"lastz {str(sys.argv[2])} {str(sys.argv[3])} --scores=scores_lastz_sw --strand=plus --gapped --hspthresh=100000 ‑‑allocate:traceback={str(sys.argv[4])}.0M --format=maf+ > result.lastz.maf"
+        os.system(command)
+        f = open("result.lastz.maf", "r")
+        print("\n\nFinding the Lastz best alignment score...\n")
+        score = finder(f)
+        print(f"Found score: {score}\n\n")
 
-    print("\n\nFinding and translating the best alignment score...\n")    
-    f = open(file_name, "r")
-    score = translator(f)
-    print('Translated score:', score, "\n\n")
+    #command = f"./cudalign --clear --stage-1 --blocks=512 --mummer-score={score} --no-flush {str(sys.argv[2])} {str(sys.argv[3])}"
+    #os.system(command)
 
 if __name__ == "__main__":
     main()
