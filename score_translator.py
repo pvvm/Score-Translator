@@ -1,7 +1,9 @@
 import sys
 import os
 
-def translator(file):
+def translator():
+    print("\n\nFinding and translating the MUMmer best alignment score...\n")    
+    file = open("result.align", "r")
     score = 0
     best_score = 0
     gap = 0
@@ -60,9 +62,13 @@ def translator(file):
     for line in best_align:
         print(line)
 
+    file.close()
+
     return best_score
 
-def finder(file):
+def finder():
+    file = open("result.lastz.maf", "r")
+    print("\n\nFinding the Lastz best alignment score...\n")
 
     best = 0
 
@@ -70,32 +76,46 @@ def finder(file):
         if "a score=" in line and best < int((line[:-1])[8:]):
             best = int((line[:-1])[8:])
     
+    file.close()
+
     return best
+
+def script_modifier(score):
+    f = open("sbatch-nvidia-2", "r")
+    script_lines = f.readlines()
+    f.close()
+    for line in range(len(script_lines)):
+        if "score=" in script_lines[line]:
+            script_lines[line] = f"score={score}\n"
+    f = open("sbatch-nvidia-2", "w")
+    new_script = "".join(script_lines)
+    f.write(new_script)
+    f.close() 
 
 def main():
 
+    score = -1
+
     if str(sys.argv[1]) == "-h":
-        print("\nOptions:\nExecute with MUMmer:\npython3 score_translator.py -m sequence1.fasta sequence2.fasta\n\nExecute with Lastz:\npython3 score_translator.py -l sequence1.fasta sequence2.fasta [traceback]\n")
-        print("Note: traceback must be bigger than 0\n\n")
+        print("\nOptions:\nExecute with MUMmer:\npython3 score_translator.py -m dir sequence1.fasta sequence2.fasta\n\nExecute with Lastz:\npython3 score_translator.py -l dir sequence1.fasta sequence2.fasta [traceback]\n")
+        print("Note: traceback must be bigger than 0\n\tdir must be in format 1-3m\n")
 
     elif str(sys.argv[1]) == "-m":
-        command = f"run-mummer3 {str(sys.argv[2])} {str(sys.argv[3])} result"
+        command = f"run-mummer3 {str(sys.argv[3])} {str(sys.argv[4])} result"
         os.system(command)
-        print("\n\nFinding and translating the MUMmer best alignment score...\n")    
-        f = open("result.align", "r")
-        score = translator(f)
+        score = translator()
         print(f"Translated score: {score} \n\n")
 
     elif str(sys.argv[1] == "-l"):
-        command = f"lastz {str(sys.argv[2])} {str(sys.argv[3])} --scores=scores_lastz_sw --strand=plus --gapped --hspthresh=100000 ‑‑allocate:traceback={str(sys.argv[4])}.0M --format=maf+ > result.lastz.maf"
+        command = f"lastz {str(sys.argv[3])} {str(sys.argv[4])} --scores=scores_lastz_sw --strand=plus --gapped --hspthresh=100000 ‑‑allocate:traceback={str(sys.argv[5])}.0M --format=maf+ > result.lastz.maf"
         os.system(command)
-        f = open("result.lastz.maf", "r")
-        print("\n\nFinding the Lastz best alignment score...\n")
-        score = finder(f)
+        score = finder()
         print(f"Found score: {score}\n\n")
 
-    #command = f"./cudalign --clear --stage-1 --blocks=512 --mummer-score={score} --no-flush {str(sys.argv[2])} {str(sys.argv[3])}"
-    #os.system(command)
+    if score != -1:
+        script_modifier(score)
+        command =f"sbatch sbatch-nvidia-2 {str(sys.argv[2])}"
+        print(command)
 
 if __name__ == "__main__":
     main()
